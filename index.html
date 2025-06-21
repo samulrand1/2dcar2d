@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>2Dドライビングシミュレーター</title>
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      background: #ccc;
+    }
+    canvas {
+      display: block;
+      background: #e0e0e0;
+    }
+    #popup {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: white;
+      border: 1px solid #888;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="popup"></div>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const carImg = new Image();
+    carImg.src = "car.png"; // アップロードした車画像と同名にしてください
+
+    const keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    const popup = document.getElementById("popup");
+
+    const player = {
+      x: 0,
+      y: 0,
+      angle: 0,
+      speed: 0,
+      maxSpeed: 4,
+      accel: 0.2,
+      friction: 0.05,
+      turnSpeed: 0.04
+    };
+
+    const tileSize = 300;
+    const spots = [
+      { x: 2, y: 1, name: "カフェ", desc: "おしゃれなカフェです" },
+      { x: -1, y: -2, name: "病院", desc: "地域の総合病院" },
+      { x: 0, y: 2, name: "図書館", desc: "静かな図書館" }
+    ];
+
+    function update() {
+      // 回転
+      if (keys["ArrowLeft"]) player.angle -= player.turnSpeed;
+      if (keys["ArrowRight"]) player.angle += player.turnSpeed;
+
+      // 加速
+      if (keys["w"] || keys["W"]) player.speed += player.accel;
+      if (keys["s"] || keys["S"]) player.speed -= player.accel;
+
+      // 速度制限と摩擦
+      player.speed = Math.max(Math.min(player.speed, player.maxSpeed), -player.maxSpeed);
+      if (!keys["w"] && !keys["s"] && !keys["W"] && !keys["S"]) {
+        player.speed *= (1 - player.friction);
+      }
+
+      // 位置更新
+      player.x += Math.cos(player.angle) * player.speed;
+      player.y += Math.sin(player.angle) * player.speed;
+    }
+
+    function drawMap() {
+      const gridRange = 10;
+      for (let gx = -gridRange; gx <= gridRange; gx++) {
+        for (let gy = -gridRange; gy <= gridRange; gy++) {
+          const worldX = gx * tileSize;
+          const worldY = gy * tileSize;
+          const screen = worldToScreen(worldX, worldY);
+          ctx.strokeStyle = "#999";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(screen.x, screen.y, tileSize, tileSize);
+        }
+      }
+
+      // スポット描画
+      for (const spot of spots) {
+        const wx = spot.x * tileSize + tileSize / 4;
+        const wy = spot.y * tileSize + tileSize / 4;
+        const screen = worldToScreen(wx, wy);
+        ctx.fillStyle = "blue";
+        ctx.fillRect(screen.x, screen.y, tileSize / 2, tileSize / 2);
+
+        const dx = player.x - wx;
+        const dy = player.y - wy;
+        if (Math.sqrt(dx * dx + dy * dy) < 100) {
+          popup.innerText = `${spot.name}\n${spot.desc}`;
+          popup.style.display = "block";
+        }
+      }
+    }
+
+    function drawCar() {
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(player.angle);
+      ctx.drawImage(carImg, -carImg.width / 2, -carImg.height / 2);
+      ctx.restore();
+    }
+
+    function worldToScreen(wx, wy) {
+      const dx = wx - player.x;
+      const dy = wy - player.y;
+      const cos = Math.cos(-player.angle);
+      const sin = Math.sin(-player.angle);
+      const rx = dx * cos - dy * sin;
+      const ry = dx * sin + dy * cos;
+      return {
+        x: canvas.width / 2 + rx,
+        y: canvas.height / 2 + ry
+      };
+    }
+
+    function loop() {
+      update();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      popup.style.display = "none";
+      drawMap();
+      drawCar();
+      requestAnimationFrame(loop);
+    }
+
+    carImg.onload = () => {
+      loop();
+    };
+  </script>
+</body>
+</html>
